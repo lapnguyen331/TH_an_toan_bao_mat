@@ -1,108 +1,90 @@
 import javax.crypto.*;
+import javax.crypto.spec.IvParameterSpec;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 
-public class DES {
-    private SecretKey key ;
-    //genarate secret key
+public class AES {
+    private SecretKey key;
+    private IvParameterSpec iv; // Initialization Vector
+
     public SecretKey genKey() throws NoSuchAlgorithmException {
-        KeyGenerator gen = KeyGenerator.getInstance("DES");
+        KeyGenerator gen = KeyGenerator.getInstance("AES");
         return gen.generateKey();
     }
     public void loadKey() throws NoSuchAlgorithmException {
         this.key = genKey();
     }
     public byte[] encrypt(String data) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
-        Cipher cip = Cipher.getInstance("DES");
-
-        cip.init(Cipher.ENCRYPT_MODE,key);
-        return cip.doFinal(data.getBytes(StandardCharsets.UTF_8));
+        Cipher cipher = Cipher.getInstance("AES");
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+        byte[] cipherText = cipher.doFinal(data.getBytes());
+        return cipherText;
     }
     public String encryptBase64(String data) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
-        return Base64.getEncoder().encodeToString(encrypt(data));
+        Cipher cipher = Cipher.getInstance("AES");
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+        byte[] cipherText = cipher.doFinal(data.getBytes());
+        return new String(Base64.getEncoder().encodeToString(cipherText));
     }
-
     public String decrypt(byte[] data) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
-        Cipher cip = Cipher.getInstance("DES");
+        Cipher cip = Cipher.getInstance("AES");
 
         cip.init(Cipher.DECRYPT_MODE,key);
-        return new String(cip.doFinal(data),StandardCharsets.UTF_8);
+        return new String(cip.doFinal(data), StandardCharsets.UTF_8);
     }
     public String decryptBase64(String data) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
-        Cipher cip = Cipher.getInstance("DES");
+        Cipher cip = Cipher.getInstance("AES");
 
         cip.init(Cipher.DECRYPT_MODE,key);
         return new String(cip.doFinal(data.getBytes(StandardCharsets.UTF_8)),StandardCharsets.UTF_8);
     }
-
-//        //ma hoa file
-    public boolean encryptFile(String srcF, String desF) throws NoSuchPaddingException, NoSuchAlgorithmException, IOException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
-        Cipher cip = Cipher.getInstance("DES");
+    //ma hoa file
+    public boolean encryptFile(String srcF, String desF) throws IOException, InvalidKeyException, NoSuchPaddingException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException {
+        Cipher cip = Cipher.getInstance("AES/ECB/PKCS5Padding");
         cip.init(Cipher.ENCRYPT_MODE,key);
-        //tạo luồng đọc/xuất file
+
         BufferedInputStream bis = new BufferedInputStream(new FileInputStream(srcF));
         BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(desF));
-
-        //tạo luồng mã hóa
 
         CipherInputStream cis = new CipherInputStream(bis,cip);
 
-        // đọc file và mã hóa]
-        byte[] writebuff= new byte[100];
-        int readByte = 0;
+        byte[] writebuff = new byte[64];
+        int writeByte =0;
+        while((writeByte = cis.read(writebuff))!=-1){
+            bos.write(writebuff,0,writeByte);
+        }
 
-        while ((readByte = cis.read(writebuff)) != -1) {
-            bos.write(writebuff,0,readByte);
-        }
-        writebuff = cip.doFinal();
-        if(writebuff != null){
-            bos.write(writebuff);
-        }
-        //đóng các luồng
         bos.flush();
         bos.close();
-        bis.close();
         cis.close();
-
-        return false;
+        return true;
     }
-    public boolean decryptFile(String srcF, String desF) throws NoSuchPaddingException, NoSuchAlgorithmException, IOException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
-        Cipher cip = Cipher.getInstance("DES");
+    public boolean decryptFile(String srcF, String desF) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, IOException, IllegalBlockSizeException, BadPaddingException {
+        Cipher cip = Cipher.getInstance("AES/ECB/PKCS5Padding");
         cip.init(Cipher.DECRYPT_MODE,key);
-        //tạo luồng đọc/xuất file
+
         BufferedInputStream bis = new BufferedInputStream(new FileInputStream(srcF));
         BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(desF));
 
-        //tạo luồng mã hóa
+        CipherOutputStream cos = new CipherOutputStream(bos,cip);
 
-        CipherOutputStream cos = new CipherOutputStream(bos, cip);
-
-        // đọc file và mã hóa]
-        byte[] writebuff= new byte[100];
-        int readByte = 0;
-
-        while ((readByte = bis.read(writebuff)) != -1) {
-            cos.write(writebuff,0,readByte);
+        byte[] writebuff = new byte[64];
+        int writeByte =0;
+        while((writeByte = bis.read(writebuff))!=-1){
+            cos.write(writebuff,0,writeByte);
         }
-        writebuff = cip.doFinal();
-        if(writebuff != null){
-            cos.write(writebuff);
-        }
-        //đóng các luồng
         cos.flush();
         bos.flush();
         bos.close();
         bis.close();
-        cos.close();
-
-        return false;
+        return true;
     }
 
     public static void main(String[] args) throws NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException, IOException {
-        DES des = new DES();
+        AES des = new AES();
         //test cho mã hóa thường
 //        des.loadKey();
 //        String data = "lập đẹp trai";
@@ -117,4 +99,5 @@ public class DES {
         des.encryptFile(srcf,desf);
         des.decryptFile(desf,dec);
     }
+
 }
